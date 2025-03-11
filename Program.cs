@@ -47,7 +47,6 @@ else
 }
 
 
-
 // Register service (depends on repository)
 builder.Services.AddScoped<INewsletterService, NewsletterService>();
 
