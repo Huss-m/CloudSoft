@@ -12,18 +12,18 @@ runcmd:
 
 # Create a service for the application
 write_files:
-  - path: /etc/systemd/system/GithubActionsDemo.service
+  - path: /etc/systemd/system/CloudSoft.service
     content: |
       [Unit]
       Description=ASP.NET Web App running on Ubuntu
 
       [Service]
-      WorkingDirectory=/opt/GithubActionsDemo
-      ExecStart=/usr/bin/dotnet /opt/GithubActionsDemo/GithubActionsDemo.dll
+      WorkingDirectory=/opt/CloudSoft
+      ExecStart=/usr/bin/dotnet /opt/CloudSoft/CloudSoft.dll
       Restart=always
       RestartSec=10
       KillSignal=SIGINT
-      SyslogIdentifier=GithubActionsDemo
+      SyslogIdentifier=CloudSoft
       User=www-data
       Environment=ASPNETCORE_ENVIRONMENT=Production
       Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
@@ -36,5 +36,5 @@ write_files:
 
 systemd:
   units:
-    - name: GithubActionsDemo.service
+    - name: CloudSoft.service
       enabled: true
