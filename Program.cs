@@ -3,10 +3,35 @@ using CloudSoft.Services;
 using CloudSoft.Models;
 using CloudSoft.Configurations;
 using MongoDB.Driver;
+using CloudSoft.Storage;
 
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+// Add HttpContextAccessor for URL generation
+builder.Services.AddHttpContextAccessor();
+
+// Configure Azure Blob options
+builder.Services.Configure<AzureBlobOptions>(
+    builder.Configuration.GetSection(AzureBlobOptions.SectionName));
+
+// Check if Azure Storage should be used
+bool useAzureStorage = builder.Configuration.GetValue<bool>("FeatureFlags:UseAzureStorage");
+
+if (useAzureStorage)
+{
+    // Register Azure Blob Storage image service for production
+    builder.Services.AddSingleton<IImageService, AzureBlobImageService>();
+    Console.WriteLine("Using Azure Blob Storage for images");
+}
+else
+{
+    // Register local image service for development
+    builder.Services.AddSingleton<IImageService, LocalImageService>();
+    Console.WriteLine("Using local storage for images");
+}
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -60,6 +85,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+
+
+
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseRouting();
 
