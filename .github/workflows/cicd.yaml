@@ -42,13 +42,13 @@ jobs:
       with:
         name: app-artifacts
 
-    - name: Copy files via Bastion Host to App Server
+    - name: Copy files via Bastion Host to AppServer
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.BASTION_HOST }}
         username: azureuser
         key: ${{ secrets.BASTION_KEY }}
         script: |
-          ssh -o StrictHostKeyChecking=no azureuser@10.0.0.5 'sudo systemctl stop cloudsoft; rm -rf ~/cloudsoft/*'
+          ssh -o StrictHostKeyChecking=no azureuser@10.0.0.5 'sudo systemctl stop Cloudsoft; rm -rf ~/cloudsoft/*'
           scp -r ./app-artifacts/* azureuser@10.0.0.5:~/cloudsoft/
           ssh azureuser@10.0.0.5 'sudo systemctl start cloudsoft'
