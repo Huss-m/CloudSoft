@@ -46,23 +46,30 @@ jobs:
 
     - name: Debug – Visa innehåll
       run: |
-        echo "Innehåll i nedladdade artifacts:"
+        echo "Artifacts:"
         ls -la ./cloudsoft-artifacts
 
-    - name: Spara Bastion SSH-nyckel till fil
+    - name: Spara Bastion SSH-nyckel
       run: |
         echo "${{ secrets.BASTION_KEY }}" > bastion_key.pem
         chmod 600 bastion_key.pem
 
-    - name: Start SSH-tunnel via Bastion → AppServer (10.0.0.5)
+    - name: Spara AppServer SSH-nyckel
       run: |
-        ssh -o StrictHostKeyChecking=no -i bastion_key.pem -N -f -L 2222:10.0.0.5:22 azureuser@${{ secrets.BASTION_HOST }}
+        echo "${{ secrets.APPSERVER_KEY }}" > appserver_key.pem
+        chmod 600 appserver_key.pem
+
+    - name: Starta SSH-tunnel från Bastion → AppServer
+      run: |
+        ssh -i bastion_key.pem -o StrictHostKeyChecking=no -f -N -L 2222:10.0.0.5:22 azureuser@${{ secrets.BASTION_HOST }}
         sleep 5
 
     - name: Kopiera CloudSoft-filer till AppServer via tunnel
       run: |
+        eval "$(ssh-agent -s)"
+        ssh-add appserver_key.pem
         scp -o StrictHostKeyChecking=no -P 2222 -r ./cloudsoft-artifacts/* azureuser@localhost:~/cloudsoft/
 
-    - name: Starta om CloudSoft-tjänsten
+    - name: Starta om CloudSoft-tjänsten på AppServer
       run: |
-        ssh -o StrictHostKeyChecking=no -p 2222 azureuser@localhost "sudo systemctl restart cloudsoft"
+        ssh -i appserver_key.pem -o StrictHostKeyChecking=no -p 2222 azureuser@localhost "sudo systemctl restart cloudsoft"
