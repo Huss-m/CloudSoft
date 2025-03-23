@@ -31,12 +31,12 @@ jobs:
       with:
         name: app-artifacts
         path: ./publish
-
+        
   deploy:
     runs-on: ubuntu-latest
     needs: build
-
     steps:
+
     - name: Download the artifacts from Github (from the build job)
       uses: actions/download-artifact@v4
       with:
@@ -49,6 +49,6 @@ jobs:
         username: azureuser
         key: ${{ secrets.BASTION_KEY }}
         script: |
-          ssh -o StrictHostKeyChecking=no azureuser@10.0.0.5 'sudo systemctl stop Cloudsoft; rm -rf ~/cloudsoft/*'
-          scp -r ./app-artifacts/* azureuser@10.0.0.5:~/cloudsoft/
+          ssh -o StrictHostKeyChecking=no azureuser@10.0.0.5 'sudo systemctl stop cloudsoft || true; rm -rf ~/cloudsoft/*'
+          scp -r app-artifacts/* azureuser@10.0.0.5:~/cloudsoft/
           ssh azureuser@10.0.0.5 'sudo systemctl start cloudsoft'
