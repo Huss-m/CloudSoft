@@ -3,52 +3,64 @@ name: Build & Deploy CloudSoft via Bastion
 on:
   push:
     branches:
-    - "main"
+      - "main"
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Install .NET SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
 
-    - name: Check out this repo
-      uses: actions/checkout@v4
+      - name: Check out this repo
+        uses: actions/checkout@v4
 
-    - name: Restore dependencies (install Nuget packages)
-      run: dotnet restore
+      - name: Restore dependencies (install Nuget packages)
+        run: dotnet restore
 
-    - name: Build and publish the app
-      run: |
-        dotnet build --no-restore
-        dotnet publish -c Release -o ./publish
+      - name: Build and publish the app
+        run: |
+          dotnet build --no-restore
+          dotnet publish -c Release -o ./publish
 
-    - name: Upload app artifacts to Github
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-artifacts
-        path: ./publish
-        
+      - name: Upload app artifacts to Github
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-artifacts
+          path: ./publish
+
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build
     steps:
+      - name: Download the artifacts from Github (from the build job)
+        uses: actions/download-artifact@v4
+        with:
+          name: app-artifacts
+          path: ./app-artifacts
 
-    - name: Download the artifacts from Github (from the build job)
-      uses: actions/download-artifact@v4
-      with:
-        name: app-artifacts
+      - name: 🔍 Debug — Show current directory and artifact contents
+        run: |
+          echo "📂 Working Directory: $(pwd)"
+          ls -la
+          echo "📂 Contents of app-artifacts:"
+          ls -la ./app-artifacts
 
-    - name: Copy files via Bastion Host to AppServer
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.BASTION_HOST }}
-        username: azureuser
-        key: ${{ secrets.BASTION_KEY }}
-        script: |
-          ssh -o StrictHostKeyChecking=no azureuser@10.0.0.5 'sudo systemctl stop cloudsoft || true; rm -rf ~/cloudsoft/*'
-          scp -r app-artifacts/* azureuser@10.0.0.5:~/cloudsoft/
-          ssh azureuser@10.0.0.5 'sudo systemctl start cloudsoft'
+      - name: Copy files via Bastion Host to AppServer
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.BASTION_HOST }}
+          username: azureuser
+          key: ${{ secrets.BASTION_KEY }}
+          script: |
+            echo "🔻 Stopping existing app and cleaning folder..."
+            ssh -o StrictHostKeyChecking=no azureuser@10.0.0.5 'sudo systemctl stop cloudsoft || true && rm -rf ~/cloudsoft/*'
+
+            echo "📦 Copying app files to AppServer..."
+            scp -r app-artifacts/* azureuser@10.0.0.5:~/cloudsoft/
+
+            echo "🚀 Starting app..."
+            ssh azureuser@10.0.0.5 'sudo systemctl start cloudsoft'
