@@ -1,35 +1,68 @@
-name: Deploy CloudSoft via Bastion Host
+name: Build & Deploy CloudSoft via Bastion
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+    - name: Install .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
 
-    - name: Publish CloudSoft
-      run: dotnet publish -c Release -o publish
+    - name: Check out the repo
+      uses: actions/checkout@v4
 
-    - name: Setup SSH key for Bastion
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build and publish CloudSoft
+      run: |
+        dotnet build --no-restore
+        dotnet publish -c Release -o ./publish
+
+    - name: Upload app artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cloudsoft-artifacts
+        path: ./publish
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: cloudsoft-artifacts
+        path: ./cloudsoft-artifacts
+
+    - name: Debug – Visa innehåll
+      run: |
+        echo "Innehåll i nedladdade artifacts:"
+        ls -la ./cloudsoft-artifacts
+
+    - name: Spara Bastion SSH-nyckel till fil
       run: |
         echo "${{ secrets.BASTION_KEY }}" > bastion_key.pem
         chmod 600 bastion_key.pem
 
-    - name: Start SSH tunnel from GitHub runner to App Server via Bastion
+    - name: Start SSH-tunnel via Bastion → AppServer (10.0.0.5)
       run: |
         ssh -o StrictHostKeyChecking=no -i bastion_key.pem -N -f -L 2222:10.0.0.5:22 azureuser@${{ secrets.BASTION_HOST }}
         sleep 5
 
-    - name: Copy CloudSoft app to AppServer
+    - name: Kopiera CloudSoft-filer till AppServer via tunnel
       run: |
-        scp -o StrictHostKeyChecking=no -P 2222 -r ./publish/* azureuser@localhost:~/cloudsoft/
+        scp -o StrictHostKeyChecking=no -P 2222 -r ./cloudsoft-artifacts/* azureuser@localhost:~/cloudsoft/
 
-    - name: Restart CloudSoft app on AppServer
+    - name: Starta om CloudSoft-tjänsten
       run: |
         ssh -o StrictHostKeyChecking=no -p 2222 azureuser@localhost "sudo systemctl restart cloudsoft"
