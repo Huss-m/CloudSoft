@@ -4,6 +4,7 @@ using CloudSoft.Models;
 using CloudSoft.Configurations;
 using MongoDB.Driver;
 using CloudSoft.Storage;
+using Azure.Identity;
 
 
 
@@ -36,6 +37,35 @@ else
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+// Check if Azure Key Vault should be used
+  bool useAzureKeyVault = builder.Configuration.GetValue<bool>("FeatureFlags:UseAzureKeyVault");
+
+  if (useAzureKeyVault)
+  {
+      // Configure Azure Key Vault options
+      builder.Services.Configure<AzureKeyVaultOptions>(
+          builder.Configuration.GetSection(AzureKeyVaultOptions.SectionName));
+
+      // Get Key Vault URI from configuration
+      var keyVaultOptions = builder.Configuration
+          .GetSection(AzureKeyVaultOptions.SectionName)
+          .Get<AzureKeyVaultOptions>();
+      var keyVaultUri = keyVaultOptions?.KeyVaultUri;
+
+      // Register Azure Key Vault as configuration provider
+      if (string.IsNullOrEmpty(keyVaultUri))
+      {
+          throw new InvalidOperationException("Key Vault URI is not configured.");
+      }
+
+      builder.Configuration.AddAzureKeyVault(
+          new Uri(keyVaultUri),
+          new DefaultAzureCredential());
+
+      Console.WriteLine("Using Azure Key Vault for configuration");
+}
+
+// Check if MongoDB should be used
 bool useMongoDb = builder.Configuration.GetValue<bool>("FeatureFlags:UseMongoDb");
 
 if (useMongoDb)
